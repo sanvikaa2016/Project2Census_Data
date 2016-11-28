@@ -1,0 +1,107 @@
+=====================EDUCATION===================================
+1.Total count of male/female based on education.
+
+HIVE:select edu,gen, COUNT(*) Total from final_census group by edu, gen;
+PIG:
+step1 = load '/user/cloudera/Census_Records.json' using JsonLoader('Age:int,Education:chararray,MartialStatus:chararray,Gender:chararray,TaxFilerStatus:chararray,Income:float,Parents:chararray,CountryOfBirth:chararray,Citizenship:chararray,WeeksWorked:chararray');
+step2 = foreach step1 generate $1 as Edu,$3 as Gen;
+step3 = group step2 by ($0,$1);
+step4 = foreach step3 generate group,COUNT(step2.Gen);
+dump step4;
+
+
+
+
+2.Total count of employed/unemployed based on education.
+
+HIVE:select edu , SUM(CASE when ww <=0 then '1' else null END) as Employed , SUM(CASE when ww >0 then '1' else null END) as Unemployed
+from final_census group by edu;
+PIG:
+step1 = load '/user/cloudera/Census_Records.json' using JsonLoader('Age:int,Education:chararray,MartialStatus:chararray,Gender:chararray,TaxFilerStatus:chararray,Income:float,Parents:chararray,CountryOfBirth:chararray,Citizenship:chararray,WeeksWorked:int');
+step2 = foreach step1 generate $1 as Edu,$9 as ww;
+step3 = filter step2 by $1>0;
+step4 = group step3 by $0;
+step5 = foreach step4 generate group,COUNT($1);
+PIG:UNEMPLOYED
+step1 = load '/user/cloudera/Census_Records.json' using JsonLoader('Age:int,Education:chararray,MartialStatus:chararray,Gender:chararray,TaxFilerStatus:chararray,Income:float,Parents:chararray,CountryOfBirth:chararray,Citizenship:chararray,WeeksWorked:int');
+step2 = foreach step1 generate $1 as Edu,$9 as ww;
+step3 = filter step2 by $1==0;
+step4 = group step3 by $0;
+step5 = foreach step4 generate group,COUNT($1);
+dump step5;
+
+
+
+
+3.Total count for people in age range of 18-25 based on education.
+
+HIVE:select edu ,COUNT(*) as Total_Peoples  from final_census where age between 18 and 25 group by edu;
+
+
+
+=====================FINANCE===================================
+1.Tax analysis total and gender wise
+HIVE:select gen,sum(income) /count(gen) from final_census group by gen;
+
+2.Per Capita Income(PCI) analysis consolidated,gender wise and category wise
+
+HIVE:Category wise:
+
+HIVE:Select a.cat,sum(f.income)/count(a.cat) from final census f join agegroup a on f.age group by a.cat;
+
+Total PCI:
+HIVE:Select sum(income)/count(income) as totalPCI from final_census;
+=====================SOCIAL===================================
+1.Total amount dispensed on pension in x year(s)
+
+2.Total amount dispensed on scholarship in current year
+PIG:
+PIG File: t1.txt
+a = load '/user/cloudera/Census_Records.json' using JsonLoader('Age:int,Education:chararray,MartialStatus:chararray,Gender:chararray,TaxFilerStatus:chararray,Income:float,Parents:chararray,CountryOfBirth:chararray,Citizenship:chararray,WeeksWorked:chararray');
+b = load '/user/cloudera/scholar1' using PigStorage(',') as (status:chararray,schamt:int);
+c = join a by Parents,b by status;
+d = foreach c generate $6 as parent,$11 as Schamt;
+e = group d by $0;
+f = foreach e generate group,SUM(d.Schamt);
+dump f;
+Secondary table: scholar1:
+ Father only present, 2000
+ Mother only present, 4000
+ Neither parent present, 7000
+ Not in universe, 10000
+
+
+
+3.For given age range employable female widowed and divorced count
+
+=====================PLANNING==================================
+1.Voter(s) count in x year(s)
+HIVE:set year=2017;
+HIVE: select count(*) from final_census where age+(${hiveconf:year}-YEAR(from_unixtime(unix_timestamp())))>=18;
+
+2.Senior Citizen(s) count in x year(s)
+HIVE:select COUNT(*) as Total_Senior_Citizen from final_census where age+(${hiveconf:year}-YEAR(from_unixtime(unix_timestamp())))>=60;
+
+3.Total number of Male/Female
+HIVE:select gen, COUNT(*) as Total from final_census group by gen;
+
+
+4.Citizens and immigrants count for employed lot
+HIVE:select citizen, COUNT(*) from ( select CASE citizen when ' Native- Born in the United States' then 'Native Born United States' else 'Immigrants' END citizen from final_census) a group by citizen;
+
+
+=====================MISCELLANEOUS===============================
+1.Degree wise count for employability
+HIVE:Select edu,count(*) from final_census where ww=0 group by edu;
+
+
+2.Customer base analysis
+3.Non-US citizen(s) tax filer status
+HIVE:
+select age,edu,gen,'TaxFilerStatus-->', tax,'CitizenShip-->',citizen ,income,ww,from final_census where citizen not in(' Native- Born in the United States'); 
+
+
+4.Country of birth wise count for US citizenship by naturalisation
+
+HIVE:select cntry,count(citizen) from final_census where citizen=' Foreign born- U S citizen by naturalization' group by cntry;
+========================================================
